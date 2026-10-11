@@ -2114,13 +2114,18 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
 }
 
 .lib-rows { display: flex; flex-direction: column; margin-top: var(--s-3); }
+/* Cover, title, flags, library. The tick is only a grid item while
+   selecting, so the columns are counted for each state: with a column
+   reserved for it all the time, every item sat one column to the left,
+   and the title was squeezed into the cover's 48px and cut to "Mine…". */
 .lib-row {
   display: grid;
-  grid-template-columns: auto 48px 1fr auto auto;
+  grid-template-columns: 48px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--s-3);
   padding: var(--s-2);
 }
+.selecting .lib-row { grid-template-columns: auto 48px minmax(0, 1fr) auto auto; }
 .lib-row:hover { background: var(--panel); }
 .lib-row.picked { background: var(--tint-accent); }
 .lib-row .art { width: 48px; height: 48px; }
@@ -2134,6 +2139,9 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
 /* Songs whose titles matched a search, above the albums that did. */
 .lib-songs { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: var(--s-1) var(--s-4); margin-top: var(--s-3); }
 .lib-songs .lib-section-title { grid-column: 1 / -1; margin-bottom: 0; }
+/* In the list layout a song gets a whole row, like an album: the grid's
+   18rem columns cut a long title short with the rest of the width empty. */
+.lib-songs.lib-songs-rows { grid-template-columns: minmax(0, 1fr); }
 .lib-song {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
@@ -2811,7 +2819,8 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
   /* Rescan and Genres side by side under the tabs, not a full-width
      stack of their own above the albums. */
   #view-library .panel-note > button { flex: 1 1 0; width: auto; }
-  .lib-row { grid-template-columns: auto 48px 1fr auto; }
+  .lib-row { grid-template-columns: 48px minmax(0, 1fr) auto; }
+  .selecting .lib-row { grid-template-columns: auto 48px minmax(0, 1fr) auto; }
   .lib-row-library { display: none; }
 
   /* The combine dialog takes the whole screen. */

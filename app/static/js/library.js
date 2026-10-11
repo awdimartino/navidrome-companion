@@ -298,7 +298,8 @@ function freshList() {
 }
 
 function songsBlock(songs) {
-  const block = el("section", "lib-songs");
+  const block = el("section",
+                   viewing.layout === "list" ? "lib-songs lib-songs-rows" : "lib-songs");
   block.append(el("h3", "lib-section-title", "Songs"));
   for (const song of songs) {
     // A row rather than a button, so Remove can sit in it: a button inside

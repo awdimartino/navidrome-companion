@@ -2925,16 +2925,18 @@ main:has(#library-bar:not([hidden])) > #error {
    removed while it shows, so nothing sits above the image. */
 body:has(#view-home:not([hidden]) .home-cover.has-art) main { padding-top: 0; }
 
-/* On the home view the header leaves the flow so the cover starts at the
-   very top of the page, and the view's name is kept for screen readers only:
-   the cover is the title here. */
-body:has(#view-home:not([hidden])) > header {
+/* While a cover shows, the header leaves the flow so the cover starts at
+   the very top of the page, and the view's name is kept for screen readers
+   only: the cover is the title here. Only then - with no cover the greeting
+   is ordinary text at the top of the page, and taking the header out from
+   over it put the first word under the floating burger on a phone. */
+body:has(#view-home:not([hidden]) .home-cover.has-art) > header {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
 }
-body:has(#view-home:not([hidden])) #current-view {
+body:has(#view-home:not([hidden]) .home-cover.has-art) #current-view {
   position: absolute;
   width: 1px;
   height: 1px;

@@ -22,7 +22,8 @@ import {
   libraryStatus,
   libraryView,
   RESCAN_WAIT_MS,
-  selection
+  selection,
+  showProgress
 } from "./library-shared.js";
 import {
   openArtist,
@@ -35,6 +36,14 @@ import {
 import { mergeInto } from "./library-combine.js";
 
 export let openAlbum = null;
+// Candidate lists that have arrived, by album. A lookup takes a minute or
+// more and the answer comes over the socket; one that arrived after the
+// person had moved on to another album used to be dropped on the floor,
+// and the only way to see it was to run the whole lookup again.
+const answers = new Map();
+// The retag in flight, if any, so an album's buttons can be held while it
+// is the one being written - whichever page is open when that starts.
+let retagging = null;
 let drawerTracks = [];
 let drawerTracksEl = null;
 let drawerTracksHead = null;
@@ -287,6 +296,12 @@ export function openDrawer(album, { record = true } = {}) {
   libraryView.classList.add("drawer-open");
   window.scrollTo(0, 0);
   close.focus({ preventScroll: true });
+  guardActions();
+  const kept = answers.get(albumKey(album));
+  if (kept) {
+    candidatesFor = album;
+    showCandidates(kept);
+  }
   loadTracks(album);
 }
 
@@ -1005,6 +1020,35 @@ function sameAlbum(target, album) {
     && target.library_id === album.library_id && target.folder === album.folder;
 }
 
+// An operation's target, as words: the folder is Artist/Album.
+function targetName(target) {
+  return ((target && target.folder) || "").split("/").filter(Boolean).join(" — ")
+    || "an album";
+}
+
+// What beets is doing and what waits behind it, for the status line that
+// stays in view on the list and on every album's page. This is the only
+// place the queue is visible, so it names every album in it.
+function beetsLine(verb, operation) {
+  const next = (operation.queued || []).map(targetName);
+  return `${verb} ${targetName(operation.target)}`
+    + (next.length ? ` · next: ${next.join(", ")}` : "");
+}
+
+// Whether a beets operation is, or will be, about the open album.
+function aboutOpenAlbum(operation) {
+  return Boolean(operation) && [operation.target, ...(operation.queued || [])]
+    .some((target) => sameAlbum(target, openAlbum));
+}
+
+// The album's own buttons take the same folder lock as a retag, so they
+// cannot be live while its retag is running or waiting. Other albums'
+// buttons stay live: their work queues behind it.
+function guardActions() {
+  const held = aboutOpenAlbum(retagging);
+  libraryDrawer.querySelectorAll(".lib-actions button").forEach((b) => { b.disabled = held; });
+}
+
 function showCandidates(result) {
   const album = candidatesFor;
   if (!album || !sameAlbum(result, album)) return;
@@ -1041,11 +1085,17 @@ async function askForCandidates(album, button) {
   button.disabled = false;
   if (outcome.refused) {
     closeCandidates();
-  } else if (!outcome.started && !sameAlbum(outcome.operation.target, album)) {
-    closeCandidates();
-    setNote("library-op",
-      "MusicBrainz is already being asked about another album; "
-      + "try again when that finishes.", "warn");
+    return;
+  }
+  if (!outcome.started && candidatesFor === album) {
+    // In line behind another album's lookup, or already in line. The
+    // answer still lands here when it arrives - or waits for the album's
+    // page, if the person has moved on by then.
+    candidatesEl.replaceChildren(
+      el("p", "candidates-empty",
+         `Waiting for beets to finish with ${targetName(outcome.operation.target)}; `
+         + `then it asks about ${albumName(album)}. The matches appear here, or `
+         + "on this album's page if you come back to it."));
   }
 }
 
@@ -1064,17 +1114,20 @@ async function useCandidate(album, candidate, button) {
     { library_id: album.library_id, folder: album.folder,
       release_id: candidate.id });
   button.disabled = false;
-  if (!outcome.started) {
-    // Said here, where the person is looking: the panel's status line is
-    // behind the drawer. The drawer used to close first, so a retag that
-    // was refused, or never started because another was running, looked
-    // exactly like one that had begun.
-    const why = outcome.refused
-      || "Another retag is still running, so this one was not started. "
-        + "Try again when it finishes.";
-    candidatesEl.prepend(el("p", "candidates-empty warn", why));
+  if (outcome.refused) {
+    // Said here, where the person is looking. The drawer used to close
+    // first, so a retag that was refused looked exactly like one that had
+    // begun.
+    candidatesEl.prepend(el("p", "candidates-empty warn", outcome.refused));
     return;
   }
+  if (outcome.queued) {
+    setNote("library-op",
+      `${albumName(album)} is in line to be retagged after `
+      + `${targetName(outcome.operation.target)}.`, "notice");
+  }
+  // Whatever happens to the retag, this list is about the album as it was.
+  answers.delete(albumKey(album));
   closeCandidates();
   closeDrawer();
 }
@@ -1168,19 +1221,22 @@ function importSummary(result) {
   return ["", "notice"];
 }
 
-// The album's own buttons take the same folder lock, so they cannot be
-// live while a retag is in flight.
 registerOperation("import", {
   note: "library-op",
-  onButtonState(running) {
-    libraryDrawer.querySelectorAll(".lib-actions button").forEach((b) => { b.disabled = running; });
+  onButtonState(running, operation) {
+    retagging = running ? operation : null;
+    guardActions();
+    showProgress(operation, { label: "Retagging",
+                              text: beetsLine("Retagging", operation) });
   },
-  onResult(result) {
+  onResult(result, operation) {
+    // Named, because the person may be three albums further on by now.
+    const name = targetName(operation.target);
     if (!result.ran) {
-      setNote("library-op", `Nothing to retag: ${result.reason}`, "warn");
+      setNote("library-op", `${name}: nothing to retag: ${result.reason}`, "warn");
     } else {
       const [message, tone] = importSummary(result);
-      setNote("library-op", message, tone);
+      setNote("library-op", `${name}: ${message}`, tone);
     }
     refreshLibrary();
   },
@@ -1190,10 +1246,25 @@ registerOperation("import", {
 // list rather than a message.
 registerOperation("candidates", {
   note: "library-op",
+  onButtonState(running, operation) {
+    showProgress(operation, { label: "Finding matches",
+                              text: beetsLine("Finding matches for", operation) });
+  },
   onFailed() {
     closeCandidates();
   },
   onResult(result) {
-    showCandidates(result);
+    // Kept for the album's page unless beets could not answer at all; an
+    // error is worth asking again about, an empty list is not.
+    if (!result.error) answers.set(albumKey(result), result);
+    if (candidatesFor && sameAlbum(result, candidatesFor)) {
+      showCandidates(result);
+    } else if (!result.error) {
+      setNote("library-op",
+        `Matches for ${targetName(result)} are ready; open it to see them.`,
+        "notice");
+    } else {
+      setNote("library-op", `${targetName(result)}: ${result.error}`, "warn");
+    }
   },
 });

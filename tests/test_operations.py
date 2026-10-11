@@ -55,6 +55,104 @@ async def test_starting_one_already_running_reports_the_one_in_flight():
     await _settle(first)
 
 
+# Work about one thing - a candidate lookup, a retag - queues behind the one
+# running instead. Beets takes a minute or more per album, and asking about
+# a second album used to be refused with nothing saying what was running.
+
+@pytest.mark.asyncio
+async def test_work_about_another_album_waits_its_turn_and_is_announced():
+    release = threading.Event()
+    heard = []
+    operations.subscribe(lambda op: _record(heard, op))
+
+    def slow():
+        release.wait(timeout=5)
+        return {"album": "A"}
+
+    first, state_first = operations.enqueue(
+        "candidates", "alex", slow, {"folder": "A"})
+    second, state_second = operations.enqueue(
+        "candidates", "alex", lambda: {"album": "B"}, {"folder": "B"})
+
+    assert state_first == operations.STARTED
+    assert state_second == operations.QUEUED
+    assert second is first
+    assert first.as_dict()["queued"] == [{"folder": "B"}]
+
+    release.set()
+    await _settle(first)       # A finishes and B is launched in its wake
+    await _settle(first)       # B
+
+    assert first.result == {"album": "B"}
+    assert first.target == {"folder": "B"}
+    assert first.queue == []
+    # The page hears A finish, B start, B finish.
+    assert heard == [("done", {"folder": "A"}, {"album": "A"}),
+                     ("running", {"folder": "B"}, None),
+                     ("done", {"folder": "B"}, {"album": "B"})]
+
+
+async def _record(heard, operation):
+    heard.append((operation.status, operation.target, operation.result))
+
+
+@pytest.mark.asyncio
+async def test_the_same_album_is_not_lined_up_twice():
+    release = threading.Event()
+
+    def slow():
+        release.wait(timeout=5)
+        return {}
+
+    operation, _ = operations.enqueue("candidates", "alex", slow, {"folder": "A"})
+    _, again = operations.enqueue("candidates", "alex", slow, {"folder": "A"})
+    _, queued = operations.enqueue("candidates", "alex", slow, {"folder": "B"})
+    _, queued_again = operations.enqueue("candidates", "alex", slow, {"folder": "B"})
+
+    assert again == operations.WAITING
+    assert queued == operations.QUEUED
+    assert queued_again == operations.WAITING
+    assert [t for t, _ in operation.queue] == [{"folder": "B"}]
+
+    release.set()
+    await _settle(operation)
+    await _settle(operation)
+
+
+@pytest.mark.asyncio
+async def test_a_failure_does_not_strand_what_was_waiting():
+    def boom():
+        raise RuntimeError("beets exploded")
+
+    operation, _ = operations.enqueue("import", "alex", boom, {"folder": "A"})
+    operations.enqueue("import", "alex", lambda: {"album": "B"}, {"folder": "B"})
+    await _settle(operation)
+    await _settle(operation)
+
+    assert operation.status == operations.DONE
+    assert operation.result == {"album": "B"}
+
+
+@pytest.mark.asyncio
+async def test_a_shutdown_drops_what_was_waiting():
+    release = threading.Event()
+
+    def slow():
+        release.wait(timeout=5)
+        return {}
+
+    operation, _ = operations.enqueue("import", "alex", slow, {"folder": "A"})
+    operations.enqueue("import", "alex", slow, {"folder": "B"})
+
+    tasks = operations.stop_all()
+
+    assert operation.queue == []
+    release.set()
+    for task in tasks:
+        await task
+    assert operation.target == {"folder": "A"}
+
+
 # Keyed by name alone, Kelly starting a combine while Alex's ran was handed
 # Alex's operation - hers never ran and its result went to him - and every
 # person's results were readable by everyone (CODE_REVIEW H3).

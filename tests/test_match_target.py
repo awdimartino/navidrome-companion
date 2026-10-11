@@ -60,12 +60,17 @@ async def test_the_answer_names_the_album_it_is_about(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_a_lookup_refused_while_another_runs_says_whose_it_is(monkeypatch):
+async def test_a_lookup_asked_while_another_runs_waits_its_turn(monkeypatch):
+    """Queued, not refused: a second album's lookup used to be turned away
+    with nothing on the page saying what was running or when it would end,
+    so the person tried again, and again, into the same refusal."""
     release = threading.Event()
+    asked = []
 
     def slow(space, path):
         release.wait(timeout=5)
-        return {"candidates": [{"id": "mb-a"}]}
+        asked.append(Path(path).name)
+        return {"candidates": [{"id": f"mb-{Path(path).name}"}]}
 
     monkeypatch.setattr(beets_runner, "candidates", slow)
     await library_edit_routes.library_match(
@@ -74,9 +79,20 @@ async def test_a_lookup_refused_while_another_runs_says_whose_it_is(monkeypatch)
         library_edit_routes.AlbumTarget(library_id=1, folder="Artist/B"), _session())
 
     assert second["started"] is False
+    assert second["queued"] is True
     assert second["operation"]["target"]["folder"] == "Artist/A"
+    assert second["operation"]["queued"] == [{"library_id": 1, "folder": "Artist/B"}]
+
     release.set()
-    await _settle(operations.get("candidates", "alex"))
+    operation = operations.get("candidates", "alex")
+    await _settle(operation)   # A
+    await _settle(operation)   # then B, on its own
+
+    assert asked == ["A", "B"]
+    assert operation.result["folder"] == "Artist/B"
+    # Both albums' releases can now be applied: each was offered.
+    assert library_edit_routes._offered[("alex", 1, str(Path(library.album_dir(
+        None, 1, "Artist/B"))))] == {"mb-B"}
 
 
 @pytest.mark.asyncio

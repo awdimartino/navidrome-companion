@@ -215,19 +215,50 @@ export function forgetCoverSurvey() {
   libraryState.surveyGeneration += 1;
 }
 
+// One line per operation in flight, by name. Several can run at once - a
+// ReplayGain sweep and a candidate lookup, say - and one line for all of
+// them meant whichever finished last wiped the others off the page.
+const progressLines = new Map();
+let progressTicker = null;
+
+// How long it has been running, as words. Beets takes a minute or more per
+// album and shows nothing while it works; a clock that moves is the
+// difference between "working" and "hung".
+function elapsed(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
+}
+
+function tickProgress() {
+  libraryProgress.querySelectorAll(".progress-clock").forEach((clock) => {
+    clock.textContent = elapsed(Date.now() - Number(clock.dataset.since));
+  });
+}
+
 // A running operation's progress line. `ordinal` counts the album being
 // worked on ("1 of 3") rather than those finished ("0 of 3"); `stopUrl`
-// adds a Stop button, for an operation that can stop between albums.
-export function showProgress(operation, { label, stopUrl = null, ordinal = false }) {
+// adds a Stop button, for an operation that can stop between albums;
+// `text` replaces the counted form for work that has no units to count.
+export function showProgress(operation, { label, stopUrl = null, ordinal = false, text = null }) {
+  const old = progressLines.get(operation.name);
+  if (old) old.remove();
+  progressLines.delete(operation.name);
   if (operation.status !== "running") {
-    libraryProgress.replaceChildren();
-    libraryProgress.hidden = true;
+    if (!progressLines.size) {
+      libraryProgress.hidden = true;
+      clearInterval(progressTicker);
+      progressTicker = null;
+    }
     return;
   }
   const p = operation.progress;
-  const text = p ? `${label}: ${p.done + (ordinal ? 1 : 0)} of ${p.total} — ${p.album}`
-    : `${label}: starting…`;
-  const nodes = [el("span", "banner-text", text)];
+  const words = text || (p ? `${label}: ${p.done + (ordinal ? 1 : 0)} of ${p.total} — ${p.album}`
+    : `${label}: starting…`);
+  const clock = el("span", "progress-clock");
+  // The server says how long it has run; from here the page counts on its
+  // own, so the clock moves between announcements.
+  clock.dataset.since = String(Date.now() - (operation.seconds || 0) * 1000);
+  const nodes = [el("span", "banner-text", words), clock];
   if (stopUrl) {
     const stop = el("button", "ghost", operation.stopping ? "Stopping…" : "Stop");
     stop.type = "button";
@@ -246,6 +277,11 @@ export function showProgress(operation, { label, stopUrl = null, ordinal = false
     });
     nodes.push(stop);
   }
-  libraryProgress.replaceChildren(...nodes);
+  const line = el("div", "progress-line");
+  line.append(...nodes);
+  progressLines.set(operation.name, line);
+  libraryProgress.append(line);
   libraryProgress.hidden = false;
+  tickProgress();
+  if (!progressTicker) progressTicker = setInterval(tickProgress, 1000);
 }

@@ -527,7 +527,11 @@ def test_an_operation_that_did_not_start_is_not_treated_as_started():
     closed the drawer, when the server answered started: false (2M23).
     Checked in Chromium; this pins the wiring."""
     assert "if (!outcome.started) {" in JS_FILES["library-combine.js"]
-    assert "if (!outcome.started) {" in JS_FILES["library-drawer.js"]
+    # Use this is queued behind a running retag now, so only a refusal keeps
+    # the drawer open - but it still does, where the person is looking.
+    drawer = JS_FILES["library-drawer.js"]
+    assert "if (outcome.refused) {\n    // Said here" in drawer
+    assert "if (outcome.queued) {" in drawer
 
 
 def test_a_drop_goes_to_the_library_chosen_when_it_was_dropped():

@@ -25,10 +25,15 @@ export function registerOperation(name, spec) {
 }
 
 // Always one shape, so callers ask one question each:
-//   { started: true,  refused: null, operation }  - it is running now;
-//   { started: false, refused: null, operation }  - one was already running,
-//                                                    and that one is watched;
-//   { started: false, refused: "why", operation: null } - nothing started.
+//   { started: true,  queued: false, refused: null, operation }
+//                                       - it is running now;
+//   { started: false, queued: true,  refused: null, operation }
+//                                       - in line behind the one running;
+//   { started: false, queued: false, refused: null, operation }
+//                                       - one was already running, and that
+//                                         one is watched;
+//   { started: false, queued: false, refused: "why", operation: null }
+//                                       - nothing started.
 // It used to return the payload, a payload with only `detail`, or null, and
 // each caller decoded the three by hand - two of them got it wrong (2M23).
 export async function startOperation(name, path, body) {
@@ -45,20 +50,20 @@ export async function startOperation(name, path, body) {
   } catch (err) {
     const refused = `Could not start: ${err.message}`;
     setNote(spec.note, refused, "warn");
-    return { started: false, refused, operation: null };
+    return { started: false, queued: false, refused, operation: null };
   }
   if (payload.detail || !payload.operation) {
     const refused = payload.detail || "Could not start.";
     setNote(spec.note, refused, "warn");
-    return { started: false, refused, operation: null };
+    return { started: false, queued: false, refused, operation: null };
   }
-  if (!payload.started) {
+  if (!payload.started && !payload.queued) {
     setNote(spec.note,
             "That is already running; watching the one in flight.", "warn");
   }
   showOperation(payload.operation);
-  return { started: Boolean(payload.started), refused: null,
-           operation: payload.operation };
+  return { started: Boolean(payload.started), queued: Boolean(payload.queued),
+           refused: null, operation: payload.operation };
 }
 
 // Asked on every socket open: the first shows what is already running (a
@@ -101,5 +106,7 @@ export function showOperation(operation) {
     setNote(spec.note, `${operation.name} failed: ${operation.error}`, "warn");
     return;
   }
-  spec.onResult?.(operation.result || {});
+  // The operation too: a result that arrives after the person has moved
+  // on to another album needs to say which album it is about.
+  spec.onResult?.(operation.result || {}, operation);
 }

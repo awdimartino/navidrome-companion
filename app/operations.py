@@ -13,7 +13,11 @@ runs on `threads`' pool, apart from the one requests use.
 
 So they run here instead: one at a time per person and name, off the
 request, with a status its owner can ask for. Starting one that is already
-running reports the one in flight rather than starting a second.
+running reports the one in flight rather than starting a second - or, for
+work aimed at one thing (a candidate lookup, a retag), queues it behind the
+one running. Beets takes a minute or more per album, and asking about a
+second album while the first was still being looked up used to be refused
+with nothing on the page saying what was running or when it would end.
 
 Per person, not per name. Keyed by name alone, Kelly starting a combine
 while Alex's ran was handed Alex's operation - hers was silently never run
@@ -60,6 +64,11 @@ class Operation:
     # candidate lookup is about. Without it a caller handed the operation in
     # flight cannot tell whether that is its own request or somebody else's.
     target: dict[str, Any] | None = None
+    # Work waiting its turn, each with what it is about. Run in order, one
+    # after another, as each run finishes; the list is what the page shows
+    # as "next".
+    queue: list[tuple[dict[str, Any], Callable[[], dict[str, Any]]]] = field(
+        default_factory=list, repr=False)
     task: asyncio.Task | None = field(default=None, repr=False)
     loop: asyncio.AbstractEventLoop | None = field(default=None, repr=False)
 
@@ -82,6 +91,7 @@ class Operation:
             "progress": self.progress,
             "stopping": self.stop_requested,
             "target": self.target,
+            "queued": [target for target, _ in self.queue],
         }
 
 
@@ -129,7 +139,36 @@ def start(name: str, owner: str | None,
     operation = get(name, owner)
     if operation.running:
         return operation, False
+    _launch(operation, work, target)
+    return operation, True
 
+
+STARTED, QUEUED, WAITING = "started", "queued", "waiting"
+
+
+def enqueue(name: str, owner: str | None,
+            work: Callable[[], dict[str, Any]],
+            target: dict[str, Any]) -> tuple[Operation, str]:
+    """Run `work` now, or after whatever is running under this name.
+
+    For work about one thing, where a second request is not a repeat but a
+    different album. Returns the operation and one of STARTED, QUEUED or
+    WAITING - the last when the same target is already running or already
+    in line, so clicking twice does not look the album up twice.
+    """
+    operation = get(name, owner)
+    if not operation.running:
+        _launch(operation, work, target)
+        return operation, STARTED
+    if operation.target == target or any(t == target for t, _ in operation.queue):
+        return operation, WAITING
+    operation.queue.append((target, work))
+    log.info("queued %s for %s behind %s", name, target, operation.target)
+    return operation, QUEUED
+
+
+def _launch(operation: Operation, work: Callable[[], dict[str, Any]],
+            target: dict[str, Any] | None) -> None:
     operation.status = RUNNING
     operation.started_at = time.time()
     operation.finished_at = None
@@ -147,14 +186,20 @@ def start(name: str, owner: str | None,
         except Exception as exc:
             operation.status = FAILED
             operation.error = f"{type(exc).__name__}: {exc}"[:300]
-            log.exception("operation %s failed", name)
+            log.exception("operation %s failed", operation.name)
         finally:
             operation.finished_at = time.time()
             operation.task = None
             await _announce(operation)
+            if operation.queue:
+                # Its turn. Announced as well: nobody's request is waiting
+                # on this one, so the socket is the only way the page hears
+                # that the next album is being worked on.
+                next_target, next_work = operation.queue.pop(0)
+                _launch(operation, next_work, next_target)
+                await _announce(operation)
 
     operation.task = asyncio.create_task(run())
-    return operation, True
 
 
 def report(name: str, owner: str | None, **progress: Any) -> None:
@@ -182,6 +227,8 @@ def stop_all() -> list[asyncio.Task]:
     their tasks, to wait on."""
     tasks = []
     for operation in _operations.values():
+        # Nothing waiting starts now: the thread pool is about to go.
+        operation.queue.clear()
         if operation.running and operation.task is not None:
             operation.stop_requested = True
             tasks.append(operation.task)

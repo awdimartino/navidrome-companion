@@ -345,9 +345,14 @@ async def library_match(
                {c["id"] for c in result.get("candidates", []) if c.get("id")})
         return result
 
-    operation, started = operations.start(
-        "candidates", session.identity.username, run, target=target)
-    return {"started": started, "operation": operation.as_dict()}
+    # Queued behind a lookup already running rather than refused: the
+    # answer arrives over the socket either way, and the page shows what is
+    # being looked up and what waits behind it.
+    operation, state = operations.enqueue(
+        "candidates", session.identity.username, run, target)
+    return {"started": state == operations.STARTED,
+            "queued": state == operations.QUEUED,
+            "operation": operation.as_dict()}
 
 
 # Which releases each album was offered, by (user, library, album folder).
@@ -429,10 +434,16 @@ async def library_match_apply(
         navidrome.notify()
         return result
 
-    operation, started = operations.start(
+    # Named for the page, and queued behind a retag in flight: a second
+    # album's *Use this* used to be refused while the first was still
+    # being written, with nothing saying so where the person was looking.
+    operation, state = operations.enqueue(
         "import", session.identity.username,
-        functools.partial(_locked, [path], run))
-    return {"started": started, "operation": operation.as_dict()}
+        functools.partial(_locked, [path], run),
+        {"library_id": body.library_id, "folder": body.folder})
+    return {"started": state == operations.STARTED,
+            "queued": state == operations.QUEUED,
+            "operation": operation.as_dict()}
 
 
 class CoverChoice(BaseModel):

@@ -647,6 +647,15 @@ function albumActions(album, box) {
   const group = job && jobGroup(job);
   const held = album.held_count;
   const total = album.tracks.length;
+
+  // Rebuilt only when what it shows has changed, like paintCover. Every
+  // progress tick repainted it - twice a second per running job - and the
+  // Download button under the pointer was replaced mid-click, dropping
+  // its hover, its focus and sometimes the click itself.
+  const sig = [asked.has(album.url), group, job && settledCount(job),
+               job && job.items.length].join("|");
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
   const download = el("button", "", "Download album");
   download.type = "button";
   download.addEventListener("click", () => queue(album.url, `${album.artist} - ${album.name}`, album.cover));

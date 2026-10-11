@@ -2765,6 +2765,9 @@ main:has(#library-bar:not([hidden])) > #error {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--s-3);
+  /* A button keeps the base rule's nowrap, which made the name's
+     overflow-wrap a no-op: a long match was clipped by the list. */
+  white-space: normal;
   padding: var(--s-2) var(--s-3);
   border: 0;
   border-bottom: 1px solid var(--line-soft);

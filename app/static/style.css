@@ -2592,7 +2592,8 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
   z-index: 10;
   background: var(--bg);
 }
-.library-status:has(> :not([hidden])) { padding-bottom: var(--s-3); }
+.library-status:has(> :not([hidden], #library-live)),
+.library-status:has(> #library-live > :not([hidden])) { padding-bottom: var(--s-3); }
 .library-status .candidates { max-height: 60vh; overflow-y: auto; }
 
 #library-progress { flex-direction: column; align-items: stretch; gap: var(--s-2); }

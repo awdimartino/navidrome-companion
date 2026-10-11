@@ -6,18 +6,21 @@
    select mode offers, and ReplayGain, which is started from here and from
    an album's panel. */
 
-import { el, getJSON, plural, postJSON, setNote } from "./core.js";
+import { el, getJSON, plural, postJSON } from "./core.js";
 import { registerOperation, startOperation } from "./operations.js";
 import {
   actionButton,
   albumArt,
   albumKey,
+  albumNote,
   artStamps,
   forgetCoverSurvey,
   libraryCount,
   libraryEl,
   libraryEmpty,
   libraryMore,
+  libraryNote,
+  librarySay,
   librarySearch,
   libraryState,
   librarySuggest,
@@ -366,7 +369,7 @@ export async function squareCovers(albums, button) {
       refreshLibrary();
     }, RESCAN_WAIT_MS);
   }
-  setNote("library-op",
+  libraryNote(
     `Squared ${plural(changed, "cover")}.`
     + (failed.length ? ` Could not: ${failed.join("; ")}` : "")
     + (changed ? " Navidrome shows them after its rescan." : ""),
@@ -379,7 +382,7 @@ export async function markReviewed(albums, button) {
   const { done, failed } = await eachAlbum(albums, button, "Marking", (album) =>
     postJSON("/api/library/reviewed",
              { library_id: album.library_id, folder: album.folder, reviewed: true }));
-  setNote("library-op",
+  libraryNote(
     `Marked ${plural(done, "album")} reviewed.`
     + (failed.length ? ` Could not: ${failed.join("; ")}` : ""),
     failed.length ? "warn" : "notice");
@@ -402,14 +405,16 @@ function gainSummary(result) {
 }
 
 registerOperation("replaygain", {
-  note: "library-op",
+  say: librarySay,
   onButtonState(running, operation) {
     showProgress(operation, { label: "ReplayGain", ordinal: true,
                              stopUrl: "/api/library/replaygain/stop" });
   },
-  onResult(result) {
+  // Measured from an album's page, the outcome is that album's; a sweep of
+  // everything has no target and reports to the list.
+  onResult(result, operation) {
     const [message, tone] = gainSummary(result);
-    setNote("library-op", message, tone);
+    albumNote(operation.target, message, tone);
     refreshLibrary();
   },
 });

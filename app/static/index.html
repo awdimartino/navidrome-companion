@@ -357,15 +357,20 @@
       <button id="library-select" class="ghost" type="button" aria-pressed="false">Select</button>
     </div>
     <p id="library-count" class="panel-sub" hidden></p>
-    <!-- Pinned under the header while the list scrolls, and carried into
-         the album panel while one is open: everything here is about
-         something started from an album, and a status the album covered
-         was a status nobody saw. -->
-    <div id="library-status" class="library-status">
+    <!-- Pinned under the header while the list scrolls. The note is the
+         list's own: an album's page has one of its own, and a message
+         about an album goes to whichever of the two is about it, so what
+         happened to one album is never announced on another's page. -->
+    <div class="library-status">
       <p id="library-op" class="warn" hidden></p>
-      <div id="library-progress" class="notice" hidden></div>
-      <!-- The releases beets found and would not choose between. -->
-      <section id="candidates" class="candidates" hidden></section>
+      <!-- Carried into the album page while one is open: what beets is
+           doing is worth seeing everywhere, and the match list belongs to
+           the album it was asked for. -->
+      <div id="library-live">
+        <div id="library-progress" class="notice" hidden></div>
+        <!-- The releases beets found and would not choose between. -->
+        <section id="candidates" class="candidates" hidden></section>
+      </div>
     </div>
     <div id="library-suggest"></div>
     <div id="library"></div>

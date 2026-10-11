@@ -12,7 +12,7 @@
    runs; nothing at a module's top level may use another library module's
    `const` or `let`. */
 
-import { apiFetch, el, getJSON, setNote } from "./core.js";
+import { apiFetch, el, getJSON, setBanner } from "./core.js";
 
 export const libraryView = document.getElementById("view-library");
 export const libraryEl = document.getElementById("library");
@@ -22,6 +22,7 @@ export const libraryCount = document.getElementById("library-count");
 export const libraryMore = document.getElementById("library-more");
 export const librarySearch = document.getElementById("library-search");
 const libraryProgress = document.getElementById("library-progress");
+const libraryOp = document.getElementById("library-op");
 export const libraryGenresToggle = document.getElementById("library-genres-toggle");
 export const libraryGenresSection = document.getElementById("library-genres");
 export const libraryTabs = document.getElementById("library-tabs");
@@ -35,7 +36,52 @@ export const librarySuggest = document.getElementById("library-suggest");
 export const libraryDrawer = document.getElementById("library-drawer");
 export const libraryBar = document.getElementById("library-bar");
 export const libraryDialog = document.getElementById("library-dialog");
-export const libraryStatus = document.getElementById("library-status");
+// The parts of the status block that follow you into an album's page.
+export const libraryLive = document.getElementById("library-live");
+
+/* --- notes -----------------------------------------------------------------
+   The library is several pages now - the list, an artist, an album - and a
+   note used to go to one element that was carried into whichever album was
+   open. So a retag finishing on one album announced itself on the page of
+   the next one you opened. A note now says what it is about, and goes to
+   that thing's page or to the list, never to another album's page. */
+
+// The open album's page and its own note element, while one is open.
+let openPage = null;
+
+export function setPageNote(album, node) {
+  openPage = album ? { album, node } : null;
+}
+
+export function sameTarget(a, b) {
+  return Boolean(a && b) && a.library_id === b.library_id && a.folder === b.folder;
+}
+
+// About the library as a whole: the list's banner.
+export function libraryNote(message, tone) {
+  setBanner(libraryOp, message, tone);
+}
+
+// About one album, named by anything carrying library_id and folder - a
+// listing row, an operation's target, a result: that album's page if it is
+// the one open, else the list, where it waits for you to come back.
+export function albumNote(album, message, tone) {
+  const here = openPage && sameTarget(album, openPage.album);
+  setBanner(here ? openPage.node : libraryOp, message, tone);
+}
+
+// An answer to something just clicked: the page it was clicked on.
+export function pageNote(message, tone) {
+  setBanner(openPage ? openPage.node : libraryOp, message, tone);
+}
+
+// What an operation has to say, routed by what it is about: a result goes
+// to its album; a refusal at the click goes to the page clicked on.
+export function librarySay(message, tone, operation) {
+  if (!operation) pageNote(message, tone);
+  else if (operation.target) albumNote(operation.target, message, tone);
+  else libraryNote(message, tone);
+}
 
 /* --- what is being looked at -------------------------------------------- */
 
@@ -270,7 +316,7 @@ export function showProgress(operation, { label, stopUrl = null, ordinal = false
         .catch(() => null);
       if (!response || !response.ok) {
         const data = response ? await response.json().catch(() => ({})) : {};
-        setNote("library-op", data.detail || "Could not ask it to stop.", "warn");
+        pageNote(data.detail || "Could not ask it to stop.", "warn");
         stop.disabled = false;
         stop.textContent = "Stop";
       }

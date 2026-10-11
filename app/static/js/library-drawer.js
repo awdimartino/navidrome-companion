@@ -5,24 +5,30 @@
    in place, and everything done to it - renaming and merging, a new cover,
    choosing a MusicBrainz match by hand, setting it aside. */
 
-import { el, getJSON, plural, postJSON, setNote } from "./core.js";
+import { el, getJSON, plural, postJSON } from "./core.js";
 import { registerOperation, startOperation } from "./operations.js";
 import {
   actionButton,
   albumArt,
   albumKey,
   albumName,
+  albumNote,
   artStamps,
   editField,
   forgetCoverSurvey,
   isBarred,
   isPicked,
   libraryDrawer,
+  libraryLive,
+  libraryNote,
+  librarySay,
   libraryState,
-  libraryStatus,
   libraryView,
+  pageNote,
   RESCAN_WAIT_MS,
+  sameTarget,
   selection,
+  setPageNote,
   showProgress
 } from "./library-shared.js";
 import {
@@ -47,10 +53,11 @@ let retagging = null;
 let drawerTracks = [];
 let drawerTracksEl = null;
 let drawerTracksHead = null;
-// Where the status block lives while no album is open. It is carried into
-// the panel while one is, since the panel covers it.
-const statusHome = document.createComment("library-status");
-libraryStatus.before(statusHome);
+// Where the live status - what beets is doing, the match list - sits while
+// no album is open. It is carried into the page while one is, since the
+// page covers it. The list's note stays behind: the page has its own.
+const liveHome = document.createComment("library-live");
+libraryLive.before(liveHome);
 
 function pill(text, tone = "") {
   return el("span", `lib-pill ${tone}`.trim(), text);
@@ -146,7 +153,7 @@ function moreMenu(album) {
     setSelecting(true);
     selection.albums.set(albumKey(album), album);
     refreshPicks();
-    setNote("library-op",
+    libraryNote(
       `${albumName(album)} is selected. Pick the albums or tracks to combine `
       + "with it, then Combine.", "notice");
   }));
@@ -226,7 +233,7 @@ async function openAlbumById(id) {
   } catch (err) {
     if (albumIdInPath() !== id) return;
     history.replaceState({ view: "library" }, "", "/library");
-    setNote("library-op", `Could not open that album: ${err.message}`, "warn");
+    libraryNote(`Could not open that album: ${err.message}`, "warn");
   }
 }
 
@@ -265,7 +272,7 @@ export function openDrawer(album, { record = true } = {}) {
     if (album.tracks === undefined) {
       // A song-search stub before its tracks arrive: the names the editor
       // would start from are not the album's yet.
-      setNote("library-op", "Still reading this album; try again in a moment.",
+      albumNote(album, "Still reading this album; try again in a moment.",
               "warn");
       return;
     }
@@ -288,8 +295,16 @@ export function openDrawer(album, { record = true } = {}) {
   drawerTracksEl = el("div", "lib-tracks");
   drawerTracksEl.append(el("p", "empty", "Reading…"));
 
+  // This page's own note, made fresh for it: whatever the last album's
+  // page said does not follow you here.
+  const note = el("p", "warn");
+  note.hidden = true;
+  setPageNote(album, note);
+  const status = el("div", "library-status");
+  status.append(note, libraryLive);
+
   const body = el("div", "lib-drawer-body");
-  body.append(hero, libraryStatus, actions, editWrap, picker, missingBox,
+  body.append(hero, status, actions, editWrap, picker, missingBox,
               drawerTracksHead, drawerTracksEl);
   libraryDrawer.replaceChildren(top, body);
   libraryDrawer.hidden = false;
@@ -456,11 +471,11 @@ async function queueMissing(album, data, tracks, buttons) {
     });
   } catch (err) {
     buttons.forEach((b) => { b.disabled = false; });
-    setNote("library-op", `Could not queue: ${err.message}`, "warn");
+    albumNote(album, `Could not queue: ${err.message}`, "warn");
     return;
   }
   buttons.forEach((b) => { b.textContent = "Queued"; });
-  setNote("library-op", `Queued ${plural(tracks.length, "track")}. They join this album as each `
+  albumNote(album, `Queued ${plural(tracks.length, "track")}. They join this album as each `
     + "finishes; the Download tab's Queue shows how they are getting on.", "notice");
 }
 
@@ -470,7 +485,8 @@ async function queueMissing(album, data, tracks, buttons) {
 export function closeDrawer({ record = true } = {}) {
   if (!openAlbum) return;
   openAlbum = null;
-  statusHome.after(libraryStatus);
+  liveHome.after(libraryLive);
+  setPageNote(null, null);
   closeCandidates();
   libraryDrawer.hidden = true;
   libraryDrawer.replaceChildren();
@@ -538,7 +554,7 @@ function trackMorePanel(album, track, titleInput, artistInput, gone) {
       { library_id: album.library_id, path: track.path, disc_no: d },
       discSave, () => {
         track.disc_no = d;
-        setNote("library-op", "Saved.", "notice");
+        albumNote(album, "Saved.", "notice");
       });
   });
 
@@ -560,7 +576,7 @@ function trackMorePanel(album, track, titleInput, artistInput, gone) {
     const wantArtist = moveArtist.input.value.trim();
     const wantAlbum = moveAlbum.input.value.trim();
     if (!wantArtist || !wantAlbum) {
-      setNote("library-op", "An artist and an album cannot be blank.", "warn");
+      albumNote(album, "An artist and an album cannot be blank.", "warn");
       return;
     }
     if (!confirm(
@@ -573,7 +589,7 @@ function trackMorePanel(album, track, titleInput, artistInput, gone) {
       library_id: album.library_id, path: track.path,
       album_artist: wantArtist, album: wantAlbum,
     }, moveSave, () => {
-      setNote("library-op", `"${track.title}" moved.`, "notice");
+      albumNote(album, `"${track.title}" moved.`, "notice");
       gone();
     });
   });
@@ -672,9 +688,9 @@ function trackRow(album, track, allPicked) {
           drawerTracks = drawerTracks.filter((t) => t !== track);
           album.tracks = drawerTracks.length;
           renderTracks();
-          setNote("library-op", `Saved, and moved to ${data.path}.`, "notice");
+          albumNote(album, `Saved, and moved to ${data.path}.`, "notice");
         } else {
-          setNote("library-op", "Saved.", "notice");
+          albumNote(album, "Saved.", "notice");
         }
         refreshLibrary(album);
       });
@@ -744,12 +760,12 @@ async function saveEdit(path, body, button, done) {
   button.disabled = true;
   const was = button.textContent;
   if (button.tagName === "BUTTON") button.textContent = "Saving…";
-  setNote("library-op", "");
+  pageNote("");
   try {
     done(await postJSON(path, body));
     return true;
   } catch (err) {
-    setNote("library-op", err.message, "warn");
+    pageNote(err.message, "warn");
     return false;
   } finally {
     button.disabled = false;
@@ -770,7 +786,7 @@ function albumEditor(album) {
     const wantArtist = artist.input.value.trim();
     const wantAlbum = name.input.value.trim();
     if (!wantArtist || !wantAlbum) {
-      setNote("library-op", "An artist and an album cannot be blank.", "warn");
+      albumNote(album, "An artist and an album cannot be blank.", "warn");
       return;
     }
     if (wantArtist === album.artist && wantAlbum === album.album) return;
@@ -786,7 +802,7 @@ function albumEditor(album) {
       album_artist: wantArtist, album: wantAlbum,
     }, save, (data) => {
       const failed = data.failed || [];
-      setNote("library-op",
+      albumNote(album,
               `Renamed, and ${plural(data.moved, "file")} moved to match.`
               + (failed.length ? ` Problems: ${failed.join("; ")}` : ""),
               failed.length ? "warn" : "notice");
@@ -893,7 +909,7 @@ async function applyCover(album, candidate, button, picker) {
       library_id: album.library_id, folder: album.folder, url: candidate.url,
     });
     const failed = data.failed || [];
-    setNote("library-op",
+    albumNote(album,
       data.already_square ? "That cover is already square; nothing changed."
         : `New cover on ${plural(data.written, "track")}.`
           + (failed.length ? ` Could not change: ${failed.join("; ")}` : ""),
@@ -918,7 +934,7 @@ async function applyCover(album, candidate, button, picker) {
       refreshLibrary(album);
     }, RESCAN_WAIT_MS);
   } catch (err) {
-    setNote("library-op", err.message, "warn");
+    albumNote(album, err.message, "warn");
     button.disabled = false;
   }
 }
@@ -1016,8 +1032,7 @@ function candidateRow(album, candidate) {
 // lookups run one at a time, so the answer arriving can be an earlier
 // album's, from this tab or another.
 function sameAlbum(target, album) {
-  return Boolean(target && album)
-    && target.library_id === album.library_id && target.folder === album.folder;
+  return sameTarget(target, album);
 }
 
 // An operation's target, as words: the folder is Artist/Album.
@@ -1122,7 +1137,7 @@ async function useCandidate(album, candidate, button) {
     return;
   }
   if (outcome.queued) {
-    setNote("library-op",
+    albumNote(album,
       `${albumName(album)} is in line to be retagged after `
       + `${targetName(outcome.operation.target)}.`, "notice");
   }
@@ -1136,7 +1151,7 @@ async function useCandidate(album, candidate, button) {
 
 // Reports a quarantine outcome the same way whether it moved one track or a
 // whole album, so the two callers below cannot drift in wording.
-function reportQuarantine(data) {
+function reportQuarantine(album, data) {
   const moved = data.quarantined || [];
   const failed = data.failed || [];
   const parts = [];
@@ -1144,7 +1159,7 @@ function reportQuarantine(data) {
     parts.push(`Moved ${plural(moved.length, "track")} to the Quarantine page.`);
   }
   if (failed.length) parts.push(`Could not move: ${failed.join("; ")}`);
-  setNote("library-op", parts.join(" ") || "Nothing was moved.",
+  albumNote(album, parts.join(" ") || "Nothing was moved.",
          failed.length ? "warn" : "notice");
 }
 
@@ -1155,7 +1170,7 @@ async function quarantineAlbum(album, button) {
     // The same song-search stub Edit details waits for: with no track count
     // yet, the question below threw before it was asked, and nothing at all
     // happened.
-    setNote("library-op", "Still reading this album; try again in a moment.",
+    albumNote(album, "Still reading this album; try again in a moment.",
             "warn");
     return;
   }
@@ -1170,13 +1185,13 @@ async function quarantineAlbum(album, button) {
       library_id: album.library_id, folder: album.folder,
       album: album.album, artist: album.artist,
     });
-    reportQuarantine(data);
+    reportQuarantine(album, data);
     // Set aside, so no longer anything to combine.
     forgetPicks(album);
     closeDrawer();
     refreshLibrary();
   } catch (err) {
-    setNote("library-op", err.message, "warn");
+    albumNote(album, err.message, "warn");
     button.disabled = false;
   }
 }
@@ -1194,10 +1209,10 @@ async function quarantineTrack(album, track, button, gone) {
       library_id: album.library_id, folder: album.folder,
       track_id: track.id, album: album.album, artist: album.artist,
     });
-    reportQuarantine(data);
+    reportQuarantine(album, data);
     gone();
   } catch (err) {
-    setNote("library-op", err.message, "warn");
+    albumNote(album, err.message, "warn");
     button.disabled = false;
   }
 }
@@ -1222,7 +1237,7 @@ function importSummary(result) {
 }
 
 registerOperation("import", {
-  note: "library-op",
+  say: librarySay,
   onButtonState(running, operation) {
     retagging = running ? operation : null;
     guardActions();
@@ -1233,10 +1248,10 @@ registerOperation("import", {
     // Named, because the person may be three albums further on by now.
     const name = targetName(operation.target);
     if (!result.ran) {
-      setNote("library-op", `${name}: nothing to retag: ${result.reason}`, "warn");
+      albumNote(operation.target, `${name}: nothing to retag: ${result.reason}`, "warn");
     } else {
       const [message, tone] = importSummary(result);
-      setNote("library-op", `${name}: ${message}`, tone);
+      albumNote(operation.target, `${name}: ${message}`, tone);
     }
     refreshLibrary();
   },
@@ -1245,7 +1260,7 @@ registerOperation("import", {
 // No button of its own: it is started from an album, and its result is a
 // list rather than a message.
 registerOperation("candidates", {
-  note: "library-op",
+  say: librarySay,
   onButtonState(running, operation) {
     showProgress(operation, { label: "Finding matches",
                               text: beetsLine("Finding matches for", operation) });
@@ -1260,11 +1275,11 @@ registerOperation("candidates", {
     if (candidatesFor && sameAlbum(result, candidatesFor)) {
       showCandidates(result);
     } else if (!result.error) {
-      setNote("library-op",
+      albumNote(result,
         `Matches for ${targetName(result)} are ready; open it to see them.`,
         "notice");
     } else {
-      setNote("library-op", `${targetName(result)}: ${result.error}`, "warn");
+      albumNote(result, `${targetName(result)}: ${result.error}`, "warn");
     }
   },
 });

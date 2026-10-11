@@ -689,8 +689,12 @@ async def library_replaygain(
     def run() -> dict[str, Any]:
         return replaygain.measure_all(identity, targets)
 
+    # One album's run is about that album, so the page can say so on its
+    # page rather than the list's; a sweep is about nothing in particular.
+    target = ({"library_id": body.library_id, "folder": body.folder}
+              if body.folder is not None else None)
     operation, started = operations.start(
-        replaygain.NAME, identity.username, run)
+        replaygain.NAME, identity.username, run, target=target)
     return {"started": started, "operation": operation.as_dict()}
 
 

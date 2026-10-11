@@ -5,7 +5,7 @@
    rename per album, typed exactly right each time, and a move per loose
    track from behind "More". Nothing changes until Combine is pressed. */
 
-import { el, getJSON, plural, postJSON, setNote } from "./core.js";
+import { el, getJSON, plural, postJSON } from "./core.js";
 import { registerOperation, startOperation } from "./operations.js";
 import {
   actionButton,
@@ -15,6 +15,8 @@ import {
   forgetCoverSurvey,
   isBarred,
   libraryDialog,
+  libraryNote,
+  librarySay,
   libraryState,
   looseTracks,
   selection,
@@ -71,7 +73,7 @@ export async function openCombine() {
   const libraries = new Set([...albums.map((a) => a.library_id),
                              ...loose.map((t) => t.album.library_id)]);
   if (libraries.size > 1) {
-    setNote("library-op",
+    libraryNote(
       "Those are in different libraries. A combine works inside one library.", "warn");
     return;
   }
@@ -86,7 +88,7 @@ export async function openCombine() {
       `/api/library/album?library_id=${a.library_id}&folder=${encodeURIComponent(a.folder)}`)));
   } catch (err) {
     closeCombine();
-    setNote("library-op", `Could not read those albums: ${err.message}`, "warn");
+    libraryNote(`Could not read those albums: ${err.message}`, "warn");
     return;
   }
 
@@ -103,7 +105,7 @@ export async function openCombine() {
   items.push(...loose.map(({ track, album }) => ({ track, album })));
   if (items.length < 2) {
     closeCombine();
-    setNote("library-op", "Choose at least two tracks to combine.", "warn");
+    libraryNote("Choose at least two tracks to combine.", "warn");
     return;
   }
 
@@ -467,13 +469,13 @@ async function submitCombine(go) {
 }
 
 registerOperation("combine", {
-  note: "library-op",
+  say: librarySay,
   onButtonState(running, operation) {
     showProgress(operation, { label: "Combining" });
   },
   onResult(result) {
     const failed = result.failed || [];
-    setNote("library-op",
+    libraryNote(
       `Combined ${plural(result.moved || 0, "track")} into `
       + `${result.albumartist} — ${result.album}.`
       + (failed.length ? ` Problems: ${failed.join("; ")}` : "")

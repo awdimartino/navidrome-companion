@@ -36,9 +36,17 @@ export function registerOperation(name, spec) {
 //                                       - nothing started.
 // It used to return the payload, a payload with only `detail`, or null, and
 // each caller decoded the three by hand - two of them got it wrong (2M23).
+// A panel's spec names a note element (`note`) or routes messages itself
+// (`say(message, tone, operation?)`): the library has several pages, and
+// which one a message belongs on depends on what it is about.
+function tell(spec, message, tone, operation) {
+  if (spec.say) spec.say(message, tone, operation);
+  else setNote(spec.note, message, tone);
+}
+
 export async function startOperation(name, path, body) {
   const spec = registry[name];
-  setNote(spec.note, "");
+  tell(spec, "");
   let payload;
   try {
     const request = { method: "POST" };
@@ -49,17 +57,16 @@ export async function startOperation(name, path, body) {
     payload = await apiFetch(path, request).then((r) => r.json());
   } catch (err) {
     const refused = `Could not start: ${err.message}`;
-    setNote(spec.note, refused, "warn");
+    tell(spec, refused, "warn");
     return { started: false, queued: false, refused, operation: null };
   }
   if (payload.detail || !payload.operation) {
     const refused = payload.detail || "Could not start.";
-    setNote(spec.note, refused, "warn");
+    tell(spec, refused, "warn");
     return { started: false, queued: false, refused, operation: null };
   }
   if (!payload.started && !payload.queued) {
-    setNote(spec.note,
-            "That is already running; watching the one in flight.", "warn");
+    tell(spec, "That is already running; watching the one in flight.", "warn");
   }
   showOperation(payload.operation);
   return { started: Boolean(payload.started), queued: Boolean(payload.queued),
@@ -103,7 +110,7 @@ export function showOperation(operation) {
 
   if (operation.status === "failed") {
     spec.onFailed?.(operation.error);
-    setNote(spec.note, `${operation.name} failed: ${operation.error}`, "warn");
+    tell(spec, `${operation.name} failed: ${operation.error}`, "warn", operation);
     return;
   }
   // The operation too: a result that arrives after the person has moved

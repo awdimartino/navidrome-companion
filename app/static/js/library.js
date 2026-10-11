@@ -23,7 +23,7 @@
    are library-attention.js, library-drawer.js and library-combine.js; what
    they share is library-shared.js. */
 
-import { apiFetch, el, getJSON, pageEscape, plural, postJSON, setNote, songRow } from "./core.js";
+import { apiFetch, el, getJSON, pageEscape, plural, postJSON, songRow } from "./core.js";
 import { barRows } from "./charts.js";
 import { setBadge } from "./nav.js";
 import {
@@ -45,6 +45,7 @@ import {
   libraryKind,
   libraryLayout,
   libraryMore,
+  libraryNote,
   librarySearch,
   librarySelect,
   libraryShow,
@@ -192,7 +193,7 @@ async function quarantineSelection(button) {
   selection.albums.clear();
   selection.tracks.clear();
   if (openAlbum) closeDrawer();
-  setNote("library-op", `Moved ${plural(moved, "track")} to the Quarantine page.`
+  libraryNote(`Moved ${plural(moved, "track")} to the Quarantine page.`
     + (failed.length ? ` ${failed.length} failed: ${failed.slice(0, 3).join("; ")}` : ""),
     failed.length ? "warn" : "notice");
   refreshPicks();
@@ -337,11 +338,11 @@ async function removeSong(song, row, button) {
     });
   } catch (err) {
     button.disabled = false;
-    setNote("library-op", `Could not quarantine "${song.title}": ${err.message}`, "warn");
+    libraryNote(`Could not quarantine "${song.title}": ${err.message}`, "warn");
     return;
   }
   row.remove();
-  setNote("library-op", `"${song.title}" moved to the Quarantine page.`, "notice");
+  libraryNote(`"${song.title}" moved to the Quarantine page.`, "notice");
   refreshLibrary();
   loadQuarantineCount();
 }
@@ -820,9 +821,9 @@ document.getElementById("library-rescan").addEventListener("click", async () => 
   try {
     const payload = await apiFetch("/api/library/rescan", { method: "POST" })
       .then((r) => r.json());
-    setNote("library-op", payload.detail || "", payload.detail ? "warn" : "");
+    libraryNote(payload.detail || "", payload.detail ? "warn" : "");
   } catch (err) {
-    setNote("library-op", `Could not ask for a scan: ${err.message}`, "warn");
+    libraryNote(`Could not ask for a scan: ${err.message}`, "warn");
   } finally {
     rescan.disabled = false;
     rescan.textContent = "Rescan";

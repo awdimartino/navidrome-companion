@@ -348,21 +348,30 @@ function render() {
 
 /* --- the phone's pill and sheet --------------------------------------------- */
 
+// Named, and always there: on a phone this is the only sign the queue
+// exists. It used to appear only once something was queued and said just
+// "1 downloading", so with nothing going the queue had simply vanished,
+// and with something going a small pill at the bottom edge was all there
+// was to find.
 function renderPill(shelves) {
   const { active, attention, done } = shelves;
-  const words = [];
-  if (active.length) words.push(el("span", "dl-pill-pulse"), `${active.length} downloading`);
+  const words = [el("span", "dl-pill-label", "Queue")];
+  const status = [];
+  if (active.length) status.push(el("span", "dl-pill-pulse"), `${active.length} downloading`);
   if (attention.length) {
-    if (words.length) words.push(" · ");
-    words.push(el("span", "tone-bad", `${attention.length} need${attention.length === 1 ? "s" : ""} a look`));
+    if (status.length) status.push(" · ");
+    status.push(el("span", "tone-bad", `${attention.length} need${attention.length === 1 ? "s" : ""} a look`));
   }
-  if (!words.length) words.push(`✓ ${plural(done.length, "download")} finished`);
+  if (!status.length) {
+    status.push(done.length ? `✓ ${plural(done.length, "download")} finished` : "empty");
+  }
+  words.push(el("span", "dl-pill-sep", "·"), ...status);
 
   const covers = el("span", "dl-pill-covers");
   (active.length ? active : attention.length ? attention : done).slice(0, 3)
     .forEach((job) => covers.append(remoteArt(coverOf(job))));
   pillEl.replaceChildren(covers, ...words);
-  pillEl.hidden = !jobs.size;
+  pillEl.hidden = false;
 }
 
 function openSheet(open) {

@@ -1117,6 +1117,10 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
   transform: translateX(-50%);
 }
 .dl-pill:hover { background: var(--panel-3); }
+.dl-pill-label { font-weight: var(--w-medium); }
+.dl-pill-sep { color: var(--faint); }
+/* No covers to show: no gap left for them either. */
+.dl-pill-covers:empty { display: none; }
 .dl-pill .tone-bad { color: var(--bad); }
 .dl-pill-covers { display: flex; }
 .dl-pill-covers .art {
@@ -1140,6 +1144,12 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
   .dl-pill { display: flex; }
   /* Room under the last result, so the pill never sits on it. */
   .br-main { padding-bottom: calc(var(--s-6) * 2); }
+  /* The page's floating banner lands in the same corner; here it sits
+     above the pill rather than on top of it. */
+  main:has(#view-browse:not([hidden])) > #warn,
+  main:has(#view-browse:not([hidden])) > #error {
+    bottom: calc(var(--float-gap) + env(safe-area-inset-bottom, 0px) + 46px + var(--s-3));
+  }
   .downloads-open .dl-rail {
     display: block;
     position: fixed;

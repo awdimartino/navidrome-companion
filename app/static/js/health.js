@@ -14,7 +14,9 @@ const healthError = document.getElementById("health-error");
 const healthBadge = document.getElementById("health-badge");
 
 function renderCheck(check) {
-  const row = el("div", `check ${check.status}${check.secondary ? " secondary" : ""}`);
+  // "status-warn", not "warn": the bare word is the page banner's class,
+  // and a warn row picked up the banner's margin and font size.
+  const row = el("div", `check status-${check.status}${check.secondary ? " secondary" : ""}`);
   const label = el("span", "check-label", check.label);
   if (check.hint) label.title = check.hint;
 

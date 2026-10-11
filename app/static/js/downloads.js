@@ -205,7 +205,9 @@ function updateJob(job) {
   if (open) {
     const rows = job.items.map((item) => {
       const row = el("div", "dl-trk");
-      const status = el("span", `dl-trk-st ${item.status}${item.warning ? " warn" : ""}`,
+      // "warned", not "warn": the bare word is the page banner's class, and
+      // a track done without an identity drew as a padded amber banner.
+      const status = el("span", `dl-trk-st ${item.status}${item.warning ? " warned" : ""}`,
         stepOf(item));
       const name = el("span", "dl-trk-name", item.title);
       if (item.error || item.warning) name.title = item.error || item.warning;

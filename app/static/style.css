@@ -1092,7 +1092,7 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
 .dl-trk-st { flex: none; color: var(--faint); font-size: var(--t-xs); }
 .dl-trk-st.complete { color: var(--ok); }
 .dl-trk-st.failed { color: var(--bad); }
-.dl-trk-st.complete.warn { color: var(--warn); }
+.dl-trk-st.complete.warned { color: var(--warn); }
 .dl-trk-st.matching, .dl-trk-st.downloading, .dl-trk-st.retrying,
 .dl-trk-st.tagging, .dl-trk-st.filing { color: var(--accent); }
 .dl-retry { margin-top: var(--s-2); min-height: 28px; font-size: var(--t-xs); }
@@ -1411,14 +1411,14 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
 
 /* Only the rows that need something done are marked: a tinted row and a
    coloured number. A healthy row is just a row. */
-.check.warn { background: var(--tint-warn); border-radius: var(--r-md); border: 0; color: inherit; }
-.check.fail { background: var(--tint-bad); border-radius: var(--r-md); }
+.check.status-warn { background: var(--tint-warn); border-radius: var(--r-md); }
+.check.status-fail { background: var(--tint-bad); border-radius: var(--r-md); }
 
 .check-label { cursor: help; font-size: var(--t-md); }
 .check-value { font-variant-numeric: tabular-nums; font-weight: var(--w-bold); text-align: right; }
-.check.ok .check-value { color: var(--faint); font-weight: var(--w-normal); }
-.check.fail .check-value { color: var(--bad); }
-.check.warn .check-value { color: var(--warn); }
+.check.status-ok .check-value { color: var(--faint); font-weight: var(--w-normal); }
+.check.status-fail .check-value { color: var(--bad); }
+.check.status-warn .check-value { color: var(--warn); }
 .check-detail { font-size: var(--t-sm); color: var(--faint); }
 
 /* --- duplicates ----------------------------------------------------------- */
@@ -1889,6 +1889,9 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
   color: var(--faint);
   font-size: var(--t-sm);
 }
+/* A refusal in the box is a banner. .candidates-empty's grey is declared
+   later and won, leaving grey text on an amber tint. */
+.candidates-empty.warn { color: color-mix(in srgb, var(--warn) 80%, #fff); }
 
 .candidate {
   display: grid;

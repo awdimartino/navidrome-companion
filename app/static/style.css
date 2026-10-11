@@ -2463,7 +2463,9 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
   border-top: 1px solid var(--line-soft);
   font-size: var(--t-md);
 }
-.q-track:first-of-type { margin-top: var(--s-2); }
+/* The gap above the first track. first-of-type never matched: the first
+   div in the card is the album's head, so the gap was never drawn. */
+.q-album-head + .q-track { margin-top: var(--s-2); }
 .q-track-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .q-track-name small { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--faint); font-size: var(--t-sm); }
 .q-track .lib-pill { white-space: nowrap; }

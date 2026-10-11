@@ -763,7 +763,10 @@ async function openAlbum(id, { record = true } = {}) {
 }
 
 document.addEventListener("keydown", (event) => {
-  if (pageEscape(event) && openAlbumId && !viewEl.hidden) leaveAlbum();
+  // Not while the queue sheet is open over the page: Escape is its to close,
+  // whichever of the two listeners the browser runs first.
+  if (pageEscape(event) && openAlbumId && !viewEl.hidden
+      && !viewEl.classList.contains("downloads-open")) leaveAlbum();
 });
 
 /* --- the box ---------------------------------------------------------------- */

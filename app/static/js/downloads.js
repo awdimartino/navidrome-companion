@@ -388,7 +388,12 @@ pillEl.addEventListener("click", () => openSheet(true));
 closeEl.addEventListener("click", () => openSheet(false));
 scrimEl.addEventListener("click", () => openSheet(false));
 document.addEventListener("keydown", (event) => {
-  if (pageEscape(event) && view.classList.contains("downloads-open")) openSheet(false);
+  if (!pageEscape(event) || !view.classList.contains("downloads-open")) return;
+  // Claimed, so the album page's own Escape - which also listens on the
+  // document - leaves the page alone. One press used to close the sheet
+  // and go Back out of the album together.
+  event.preventDefault();
+  openSheet(false);
 });
 
 onJobs(render);

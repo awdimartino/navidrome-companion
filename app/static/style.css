@@ -2296,7 +2296,9 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
 .lib-drawer { min-width: 0; }
 .lib-drawer-top {
   position: sticky;
-  top: 0;
+  /* Below the floating burger and LIVE pill, like every other pinned bar.
+     At top: 0 the Back button stuck exactly under the burger on a phone. */
+  top: var(--header-h, 56px);
   z-index: 2;
   display: flex;
   justify-content: space-between;

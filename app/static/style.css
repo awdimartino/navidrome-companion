@@ -1142,8 +1142,10 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
   .br-searchbar::after { left: 50%; right: auto; width: 100vw; transform: translateX(-50%); }
   .dl-rail { display: none; }
   .dl-pill { display: flex; }
-  /* Room under the last result, so the pill never sits on it. */
-  .br-main { padding-bottom: calc(var(--s-6) * 2); }
+  /* Room under the last result, so the pill never sits on it - and under
+     an album page's last track, which had none and was covered. */
+  .br-main,
+  #view-browse .lib-drawer-body { padding-bottom: calc(var(--s-6) * 2); }
   /* The page's floating banner lands in the same corner; here it sits
      above the pill rather than on top of it. */
   main:has(#view-browse:not([hidden])) > #warn,

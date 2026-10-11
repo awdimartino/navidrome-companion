@@ -1713,7 +1713,9 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
   .nav-item { min-height: 52px; }
 
 
-  .panel-note button { width: 100%; min-height: 40px; }
+  /* Not the link-styled button inside a note's sentence: widened to the
+     whole line it broke the sentence around itself. */
+  .panel-note button:not(.link-button) { width: 100%; min-height: 40px; }
 
   #settings { gap: var(--s-3); }
 

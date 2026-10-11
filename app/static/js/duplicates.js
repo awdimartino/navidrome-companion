@@ -69,8 +69,12 @@ function renderGroup(group) {
       el("span", "dupe-album", copy.album || "—"),
       el("span", "dupe-path", copy.path)
     );
-    if (copy.starred) row.append(el("span", "dupe-star", "★"));
-    if (copy.rating) row.append(el("span", "dupe-star", "●".repeat(copy.rating)));
+    // One span for both marks: the row's grid has one column for them, and
+    // a starred *and* rated copy put its rating on a second row under the
+    // radio button.
+    const marks = [copy.starred ? "★" : "", copy.rating ? "●".repeat(copy.rating) : ""]
+      .filter(Boolean);
+    if (marks.length) row.append(el("span", "dupe-star", marks.join(" ")));
     card.append(row);
   });
 

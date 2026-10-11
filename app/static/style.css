@@ -2697,7 +2697,6 @@ main:has(#library-bar:not([hidden])) > #error {
 .edit-field input { min-width: 9rem; }
 .edit-field input[type="number"] { max-width: 5rem; }
 
-.track-editor { grid-column: 1 / -1; padding-left: var(--s-4); }
 
 /* Moving one track out of its album is a different act from renaming it,
    and is kept behind its own disclosure so it cannot be done by accident. */

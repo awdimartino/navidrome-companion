@@ -1346,7 +1346,14 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
    the base button rule's inline-flex row layout, which would otherwise
    lay the label, value and detail out side by side instead of stacked. */
 .stat-link {
-  display: block;
+  /* A column from the top, not a block: a button centres its content
+     vertically, so beside a taller neighbour - its detail wrapped to a
+     second line on a phone - a shorter tile's label and number sat lower
+     than the others' and the row read as misaligned. */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   width: 100%;
   min-height: 0;
   /* The button base is nowrap, which clipped a stat's detail line on a phone. */
@@ -3367,6 +3374,17 @@ main > #error { background: color-mix(in srgb, var(--bad) 16%, var(--panel-2)); 
 #view-home #listening-session .stat + .stat {
   padding-left: var(--s-4);
   border-left: 1px solid var(--line);
+}
+/* On a phone, two even columns: auto-fit gave four stats three columns and
+   a lone fourth on the next row, bordered as if it had a neighbour. An odd
+   last one takes the whole row. */
+@media (max-width: 640px) {
+  #view-home #listening-coverage,
+  #view-home #listening-session { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #view-home #listening-coverage .stat:nth-child(odd),
+  #view-home #listening-session .stat:nth-child(odd) { padding-left: 0; border-left: 0; }
+  #view-home #listening-coverage .stat:last-child:nth-child(odd),
+  #view-home #listening-session .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 #view-home .stat-detail { color: var(--muted); }
 

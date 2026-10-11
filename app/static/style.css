@@ -2477,7 +2477,10 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
   position: fixed;
   left: 50%;
   bottom: calc(var(--float-gap) + env(safe-area-inset-bottom, 0px));
-  z-index: 46;
+  /* Under the menu (35) and the floating buttons (40): at 46 it stayed on
+     top of the open menu, every button still live. Above the page's
+     floating banner (25), which steps up out of its way below. */
+  z-index: 34;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2491,6 +2494,14 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
   transform: translateX(-50%);
 }
 .lib-bar-what { margin-right: var(--s-2); font-size: var(--t-md); }
+/* The page's floating banner lands in the same corner as the bar; while
+   the bar is up it sits above it instead of underneath. The bar's height
+   is measured by library.js, since it wraps to two rows on a phone. */
+main:has(#library-bar:not([hidden])) > #warn,
+main:has(#library-bar:not([hidden])) > #error {
+  bottom: calc(var(--float-gap) + env(safe-area-inset-bottom, 0px)
+               + var(--lib-bar-h, 56px) + var(--s-3));
+}
 /* Room under the last row of covers, so the bar never sits on top of it. */
 .selecting #library-more,
 .selecting #library-empty { margin-bottom: calc(var(--s-6) * 3); }

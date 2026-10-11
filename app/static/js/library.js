@@ -113,6 +113,13 @@ export function refreshPicks() {
   renderBar();
 }
 
+// The bar's height, for the stylesheet: the page's floating banner sits
+// above the bar while it is up, and the bar is one row on a desktop and
+// two or three on a phone.
+new ResizeObserver(() => {
+  document.documentElement.style.setProperty("--lib-bar-h", `${libraryBar.offsetHeight}px`);
+}).observe(libraryBar);
+
 export function renderBar() {
   if (!selection.on || !libraryDialog.hidden) {
     libraryBar.hidden = true;

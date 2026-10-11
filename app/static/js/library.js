@@ -307,7 +307,11 @@ function freshList() {
 function songsBlock(songs) {
   const block = el("section",
                    viewing.layout === "list" ? "lib-songs lib-songs-rows" : "lib-songs");
-  block.append(el("h3", "lib-section-title", "Songs"));
+  // The rows get a grid of their own under the heading. In one grid the
+  // heading spanned every column, so a search matching two songs on a wide
+  // screen still cut each title at an 18rem column with the rest empty.
+  const grid = el("div", "lib-songs-grid");
+  block.append(el("h3", "lib-section-title", "Songs"), grid);
   for (const song of songs) {
     // A row rather than a button, so Remove can sit in it: a button inside
     // a button is not something a browser will let you press.
@@ -329,7 +333,7 @@ function songsBlock(songs) {
         open();
       }
     });
-    block.append(row);
+    grid.append(row);
   }
   return block;
 }

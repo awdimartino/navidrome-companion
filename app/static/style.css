@@ -2142,11 +2142,15 @@ main:has(#view-browse:not([hidden])) { max-width: 1400px; }
 .lib-row-library { color: var(--faint); font-size: var(--t-sm); }
 
 /* Songs whose titles matched a search, above the albums that did. */
-.lib-songs { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: var(--s-1) var(--s-4); margin-top: var(--s-3); }
-.lib-songs .lib-section-title { grid-column: 1 / -1; margin-bottom: 0; }
-/* In the list layout a song gets a whole row, like an album: the grid's
-   18rem columns cut a long title short with the rest of the width empty. */
-.lib-songs.lib-songs-rows { grid-template-columns: minmax(0, 1fr); }
+.lib-songs { margin-top: var(--s-3); }
+.lib-songs .lib-section-title { margin-bottom: var(--s-1); }
+/* auto-fit, not auto-fill, and the heading outside the grid: a search that
+   matched two songs on a wide screen gave each an 18rem column and left the
+   rest of the row empty, cutting a long title at a third of the width.
+   Empty tracks collapse now, so a few songs share the whole row. */
+.lib-songs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: var(--s-1) var(--s-4); }
+/* In the list layout a song gets a whole row, like an album. */
+.lib-songs-rows .lib-songs-grid { grid-template-columns: minmax(0, 1fr); }
 .lib-song {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);

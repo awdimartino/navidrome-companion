@@ -25,11 +25,16 @@ export const viewHandlers = {};
 // The panel hangs below the header rather than covering it, so it needs to
 // know where the header ends. Measured rather than assumed: the height moves
 // with the safe-area inset, the font size and the 720px breakpoint.
-function syncHeaderHeight() {
+// Exported for main.js: the header is hidden behind the sign-in form, and
+// on a phone the keyboard opening on that form fires resize. Measuring a
+// hidden header wrote 0, and every pinned bar then stuck at the very top of
+// the page, under the burger, until the next resize.
+export function syncHeaderHeight() {
   const header = document.querySelector("header");
-  if (!header) return;
-  document.documentElement.style.setProperty(
-    "--header-h", `${Math.round(header.getBoundingClientRect().height)}px`);
+  if (!header || header.hidden) return;
+  const height = Math.round(header.getBoundingClientRect().height);
+  if (!height) return;
+  document.documentElement.style.setProperty("--header-h", `${height}px`);
 }
 
 syncHeaderHeight();

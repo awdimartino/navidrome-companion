@@ -6,7 +6,7 @@
 
 import { setBanner, setLibraries, showError, warnEl, whenSignedOut } from "./core.js";
 import { connect, disconnect } from "./ws.js";
-import { viewHandlers, closeMenu, showView, viewFromPath } from "./nav.js";
+import { viewHandlers, closeMenu, showView, syncHeaderHeight, viewFromPath } from "./nav.js";
 import { catchUpOperations } from "./operations.js";
 import { loadHome } from "./home.js";
 import { loadListening } from "./listening.js";
@@ -53,6 +53,9 @@ function applySession(me) {
     ? `${me.username} · ${libraries}`
     : `${me.username} · no library assigned`;
   showSignin(false);
+  // Measured again now that the header is back: a resize while it was
+  // hidden was skipped, so the value could be stale from before sign-out.
+  syncHeaderHeight();
 }
 
 async function checkSession() {

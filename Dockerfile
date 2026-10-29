@@ -4,7 +4,7 @@
 # request that formats may be missing, and some downloads were refused with
 # a 403. The official image's single binary, for amd64 and arm64 alike;
 # Dependabot moves the tag forward as it does the base image's.
-FROM denoland/deno:bin-2.9.7 AS deno
+FROM denoland/deno:bin-2.9.8 AS deno
 
 # Pinned by digest as well as tag, so a rebuild of one commit starts from the
 # same image; Dependabot moves it forward (.github/dependabot.yml).
